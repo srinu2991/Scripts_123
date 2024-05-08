@@ -1,0 +1,121 @@
+---
+- name: Deploy JBoss
+  hosts: your_host
+  become: yes
+  vars:
+    log_file: "jboss-deploy.log"
+    backup_file: "{{ log_file }}.{{ ansible_date_time.date | regex_replace('[-:]','') }}"
+    jboss_home: "/path/to/jboss_home"
+    script_path: "/path/to/scripts"
+    ssh_user: "your_ssh_user"
+    controller_host: "your_controller_host"
+    controller_port: "your_controller_port"
+    jboss_user: "your_jboss_user"
+    jboss_password: "your_jboss_password"
+    server_group: "your_server_group"
+    servers_list: "your_slave_servers_comma_separated"
+
+  tasks:
+    - name: Check if the log file exists
+      stat:
+        path: "{{ log_file }}"
+      register: log_file_stat
+
+    - name: Create a backup of the log file
+      when: log_file_stat.stat.exists
+      command: mv "{{ log_file }}" "{{ backup_file }}"
+
+    - name: Redirect output to the log file
+      shell: exec > >(tee -a "{{ log_file }}") 2>&1
+
+    - name: Stop server group
+      command: >
+        "{{ jboss_home }}/{{ environment_name }}/bin/jboss-cli.sh"
+        --connect controller="{{ controller_host }}:{{ controller_port }}"
+        --user="{{ jboss_user }}"
+        --password="{{ jboss_password }}"
+        --command="/server-group={{ server_group }}:stop-servers"
+      args:
+        creates: "{{ log_file }}"
+      async: 60
+      poll: 0
+
+    - name: Wait for 1 minute
+      pause:
+        seconds: 60
+
+    - name: Check and kill JVMs on master and slave servers
+      command: >
+        pgrep -f "{{ environment_name }}"
+        | xargs ps -o pid= -o args=
+        | awk '/-D\[Server:/ {gsub(/^-D\[Server:/, ""); gsub(/\].*$/, ""); print $1, $6}'
+      register: jvm_status_master
+
+    - name: Kill JVMs on master server
+      command: kill -9 "{{ item.split()[0] }}"
+      with_items: "{{ jvm_status_master.stdout_lines }}"
+      when: item.split()[0] is defined
+
+    - name: Loop through each slave server and check and kill JVMs
+      command: ssh "{{ ssh_user }}@{{ item }}" "{{ script_path }}/check_and_kill_jvms.sh"
+      with_items: "{{ servers_list.split(',') }}"
+      async: 180
+      poll: 0
+
+    - name: Undeploy EAR
+      command: >
+        "{{ jboss_home }}/{{ environment_name }}/bin/jboss-cli.sh"
+        --connect controller="{{ controller_host }}:{{ controller_port }}"
+        --user="{{ jboss_user }}"
+        --password="{{ jboss_password }}"
+        --command="undeploy {{ ear_name }} --server-groups={{ server_group }}"
+      args:
+        creates: "{{ log_file }}"
+      async: 60
+      poll: 0
+
+    - name: Wait for 1 minute
+      pause:
+        seconds: 60
+
+    - name: Check if EAR is undeployed
+      command: >
+        "{{ jboss_home }}/{{ environment_name }}/bin/jboss-cli.sh"
+        --connect controller="{{ controller_host }}:{{ controller_port }}"
+        --user="{{ jboss_user }}"
+        --password="{{ jboss_password }}"
+        --command="deployment-info --server-group={{ server_group }}"
+      args:
+        creates: "{{ log_file }}"
+      async: 60
+      poll: 0
+
+    - name: Clean up folders on master and slave servers
+      command: "{{ script_path }}/clean_up_folders.sh"
+      async: 300
+      poll: 0
+
+    - name: Copy properties jar to master and slave servers
+      command: "{{ script_path }}/copy_properties_jar.sh"
+      async: 300
+      poll: 0
+
+    - name: Compare EAR between two folders
+      command: "{{ script_path }}/compare_ear_folders.sh"
+      async: 300
+      poll: 0
+
+    - name: Deploy EAR
+      command: "{{ script_path }}/deploy_ear.sh"
+      async: 60
+      poll: 0
+
+    - name: Check deployment status
+      command: "{{ script_path }}/check_deployment_status.sh"
+      async: 60
+      poll: 0
+
+    - name: Start server group and validate deployment
+      command: "{{ script_path }}/start_server_group_and_validate.sh"
+      async: 300
+      poll: 0
