@@ -1,0 +1,82 @@
+To install Docker on Red Hat Enterprise Linux (RHEL), you can use the official Docker repository. Here's a step-by-step guide:
+
+1. **Update System:**
+
+   Before installing Docker, it's a good idea to update your system's package database:
+
+   ```bash
+   sudo yum update
+   ```
+
+2. **Install Required Dependencies:**
+
+   Docker requires a few dependencies to be installed. Run the following command to install them:
+
+   ```bash
+   sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+   ```
+
+3. **Add Docker Repository:**
+
+   Add the Docker repository to your system:
+
+   ```bash
+   sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+   ```
+
+4. **Install Docker Engine:**
+
+   Install the latest version of Docker Engine:
+
+   ```bash
+   sudo yum install docker-ce
+   ```
+
+   This command installs the latest version of Docker Engine and containerd.
+
+5. **Start and Enable Docker:**
+
+   Start the Docker service and enable it to start on boot:
+
+   ```bash
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   ```
+
+6. **Verify Installation:**
+
+   Check that Docker has been installed and is running correctly:
+
+   ```bash
+   sudo docker --version
+   ```
+
+   This command should display the installed version of Docker.
+
+7. **Run a Test Container:**
+
+   You can run a test container to verify that Docker is working as expected. For example, you can run the `hello-world` container:
+
+   ```bash
+   sudo docker run hello-world
+   ```
+
+   This command will download a test image and run a container that prints a "Hello from Docker!" message.
+
+8. **Manage Docker as a Non-root User (Optional):**
+
+   By default, Docker commands require root privileges. If you want to run Docker commands without `sudo`, you can add your user to the `docker` group:
+
+   ```bash
+   sudo usermod -aG docker $USER
+   ```
+
+   Log out and log back in, or run the following command to apply the group membership changes:
+
+   ```bash
+   newgrp docker
+   ```
+
+   After this, you can run Docker commands without `sudo`.
+
+That's it! Docker is now installed and ready to use on your RHEL system. You can start creating and managing containers.
