@@ -1,1 +1,71 @@
 bash: -c: line 0: `$\(declare -f check_and_kill_jvms); check_and_kill_jvms'
+
+updated cleanup folder function
+
+# Function to clean up folders on master and slave servers
+function clean_up_folders() {
+    echo "****************************************"
+    echo "Cleaning up folders... in Master Server"
+    echo "****************************************"
+    # Remove content from folders on master server
+    rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/content/"* && \
+    rm -rf "$ENV_HOME/$environment_name/domain/servers/*/tmp/"* && \
+    rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan/"* && \
+    rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl/"*
+
+    # Check if folders/files were deleted successfully
+    if [ $? -eq 0 ]; then
+        echo "Folders/files cleaned up successfully on master server."
+    else
+        echo "Failed to clean up folders/files on master server."
+        exit 1
+    fi
+
+    if [ -z "$SERVERS_LIST" ]; then
+        echo "Error: Servers list not provided."
+        exit 1
+    fi
+
+    # Create a cleanup script for slave servers
+    cleanup_script=$(mktemp)
+    cat <<EOSCRIPT >"$cleanup_script"
+#!/bin/bash
+for dir in "$ENV_HOME/$environment_name"/servers/*; do
+    rm -rf "\$dir/data/content"/*
+    rm -rf "\$dir/tmp"/*
+    rm -rf "\$dir/data/infinispan"/*
+    rm -rf "\$dir/data/wsdl"/*
+done
+EOSCRIPT
+
+    # Set execution permissions for the cleanup script
+    chmod +x "$cleanup_script"
+
+    echo "****************************************"
+    echo "Cleaning up folders... in slave servers"
+    echo "****************************************"
+
+    # Loop through each slave server and clean up folders
+    IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
+    for server in "${SERVERS[@]}"; do
+        # Copy cleanup script to slave server
+        scp "$cleanup_script" "$SSH_USER@$server:~/cleanup_script.sh"
+        # Execute cleanup script on slave server
+        ssh "$SSH_USER@$server" "chmod +x ~/cleanup_script.sh && ~/cleanup_script.sh"
+
+        # Check if folders/files were deleted successfully on slave server
+        if [ $? -eq 0 ]; then
+            echo "Folders/files cleaned up successfully on $server."
+        else
+            echo "Failed to clean up folders/files on $server."
+            exit 1
+        fi
+
+        # Remove cleanup script from slave server
+        ssh "$SSH_USER@$server" "rm -f ~/cleanup_script.sh"
+    done
+
+    # Clean up the temporary cleanup script
+    rm -f "$cleanup_script"
+}
+
