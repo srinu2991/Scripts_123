@@ -114,28 +114,7 @@ function check_ear_undeployed() {
 }
 
 # Function to clean up folders on master and slave servers
-function clean_up_folders() 
-{ echo "****************************************" 
-echo "Cleaning up folders... in Master Server" 
-echo "****************************************" 
-rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/content/*" 
-rm -rf "$ENV_HOME/$environment_name/domain/servers/*/tmp/*" 
-rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan/*" 
-rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl/*" 
-if [ -z "$SERVERS_LIST" ]; then 
-echo "Error: Servers list not provided." 
-exit 1 
-fi 
-# Create a cleanup script 
-cleanup_script=$(mktemp) 
-cat <<EOSCRIPT > "$cleanup_script"
-#!/bin/bashfor dir in "$ENV_HOME/$environment_name/servers/"*; 
-do rm -rf "\$dir/data/content"/* rm -rf "\$dir/tmp"/* rm -rf "\$dir/data/infinispan"/* rm -rf "\$dir/data/wsdl"/*doneEOSCRIPT # Set execution permissions for the cleanup script chmod +x "$cleanup_script" echo "****************************************" echo "Cleaning up folders... in slave servers" echo "****************************************" IFS=',' read -ra SERVERS <<< "$SERVERS_LIST" for server in "${SERVERS[@]}"; do scp "$cleanup_script" "$SSH_USER@$server:~/cleanup_script.sh" ssh "$SSH_USER@$server" "chmod +x ~/cleanup_script.sh; bash ~/cleanup_script.sh" ssh "$SSH_USER@$server" "rm -f ~/cleanup_script.sh" done # Clean up the temporary cleanup script rm -f "$cleanup_script"}# Function to copy properties jar to master and slave serversfunction copy_properties_jar() { if [ -z "$SERVERS_LIST" ] || [ -z "$SCRIPT_PATH" ]; then echo "Error: Servers list or properties jar paths not provided." exit 1 fi echo "**************************************" echo "Unzip EAR and provide the permissions" echo "**************************************" unzip -o "$SCRIPT_PATH/$environment_name/online.zip" -d "$SCRIPT_PATH/$environment_name/online" chmod -R 775 "$SCRIPT_PATH/$environment_name/online" echo "******************************************" echo "Copying properties jar into Master Server" echo "******************************************" IFS=',' read -ra SERVERS <<< "$SERVERS_LIST" for server in "${SERVERS[@]}"; do case "$environment_name" in CCWPUAT1) cp "$SCRIPT_PATH/$environment_name/online/properties/enh_uat-properties.jar" "$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; EAP7.4_UAT) cp "$SCRIPT_PATH/$environment_name/online/properties/uat1-properties.jar" "$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; EAP7.4_UAT_TT) cp "$SCRIPT_PATH/$environment_name/online/properties/uat3-properties.jar" "$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; EAP7.4_PERF) cp "$SCRIPT_PATH/$environment_name/online/properties/perf-properties.jar" "$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; EAP7.4_PROD) cp "$SCRIPT_PATH/$environment_name/online/properties/prod-properties.jar" "$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; *) echo "Invalid environment_name specified." exit 1 ;; esac done echo "*******************************************" echo "Copying properties jar into Slave Servers" echo "*******************************************" IFS=',' read -ra SERVERS <<< "$SERVERS_LIST" for server in "${SERVERS[@]}"; do case "$environment_name" in CCWPUAT1) scp "$SCRIPT_PATH/$environment_name/online/properties/enh_uat-properties.jar" "$server:$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; EAP7.4_UAT) scp "$SCRIPT_PATH/$environment_name/online/properties/uat1-properties.jar" "$server:$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; EAP7.4_UAT_TT) scp "$SCRIPT_PATH/$environment_name/online/properties/uat3-properties.jar" "$server:$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; EAP7.4_PERF) scp "$SCRIPT_PATH/$environment_name/online/properties/perf-properties.jar" "$server:$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; EAP7.4_PROD) scp "$SCRIPT_PATH/$environment_name/online/properties/prod-properties.jar" "$server:$ENV_HOME/$environment_name/modules/ieapp/sharedlib/main/properties.jar" ;; *) echo "Invalid environment_name specified." exit 1 ;; esac done}
-
-**********************************************************
-# Function to clean up folders on master and slave servers
 function clean_up_folders() {
-
     echo "****************************************"
     echo "Cleaning up folders... in Master Server"
     echo "****************************************"
@@ -152,7 +131,7 @@ function clean_up_folders() {
     cleanup_script=$(mktemp)
     cat <<EOSCRIPT >"$cleanup_script"
 #!/bin/bash
-for dir in "$ENV_HOME/$environment_name/servers/"*; do
+for dir in "$ENV_HOME/$environment_name"/servers/*; do
     rm -rf "\$dir/data/content"/*
     rm -rf "\$dir/tmp"/*
     rm -rf "\$dir/data/infinispan"/*
