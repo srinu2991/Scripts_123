@@ -1,0 +1,1 @@
+bash: -c: line 0: `$\(declare -f check_and_kill_jvms); check_and_kill_jvms'
