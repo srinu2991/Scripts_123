@@ -69,3 +69,22 @@ EOSCRIPT
     rm -f "$cleanup_script"
 }
 
+
+************************************************
+
+
+# Loop through each slave server and check and kill JVMs
+IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
+for server in "${SERVERS[@]}"; do
+    echo "**********************************"
+    echo "Checking if server group JVMs are down on slave server $server..."
+    echo "**********************************"
+
+    # Use ssh to execute the check and kill process on the slave server
+    ssh "$SSH_USER@$server" "\$(declare -f check_and_kill_jvms); check_and_kill_jvms"
+
+    echo "**********************************"
+    echo "Finished checking on slave server $server."
+    echo "**********************************"
+done
+
