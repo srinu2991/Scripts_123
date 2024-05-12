@@ -1,0 +1,19 @@
+# upgrade_openjdk.yml
+---
+- name: Upgrade OpenJDK on JBOSS servers
+  hosts: JBOSS
+  become: yes
+
+  tasks:
+    - name: Copy OpenJDK tar file to remote server
+      copy:
+        src: /path/to/openjdk.tar.gz
+        dest: /tmp/openjdk.tar.gz
+      delegate_to: "{{ inventory_hostname }}"  # Copy to each host
+
+    - name: Extract OpenJDK tar file
+      unarchive:
+        src: /tmp/openjdk.tar.gz
+        dest: /usr/local/java
+        remote_src: yes
+      delegate_to: "{{ inventory_hostname }}"  # Extract on each host
