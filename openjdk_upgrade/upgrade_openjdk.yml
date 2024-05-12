@@ -17,3 +17,21 @@
         dest: /usr/local/java
         remote_src: yes
       delegate_to: "{{ inventory_hostname }}"  # Extract on each host
+
+    - name: Check old Java version
+      shell: java -version 2>&1 | awk '/version/ {print $3}' | sed 's/"//g'
+      register: old_java_version
+      changed_when: false
+      failed_when: false
+      delegate_to: "{{ inventory_hostname }}"
+
+    - name: Check new Java version
+      shell: /usr/local/java/bin/java -version 2>&1 | awk '/version/ {print $3}' | sed 's/"//g'
+      register: new_java_version
+      changed_when: false
+      failed_when: false
+      delegate_to: "{{ inventory_hostname }}"
+
+    - name: Display Java versions
+      debug:
+        msg: "Old Java version: {{ old_java_version.stdout }} - New Java version: {{ new_java_version.stdout }}"
