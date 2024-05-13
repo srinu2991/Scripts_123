@@ -1,14 +1,14 @@
 # check_java_version.yml
 ---
-- name: Check Java version
-  hosts: all
-  become: yes
+- name: Check Java version on staging server
+  hosts: staging
 
   tasks:
     - name: Check Java version
-      command: java -version
+      shell: java -version 2>&1 | head -n 1
       register: java_version_output
       ignore_errors: true  # Ignore errors in case Java is not installed
+      delegate_to: "{{ inventory_hostname }}"
 
     - name: Display Java version
       debug:
