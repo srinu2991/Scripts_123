@@ -1,31 +1,45 @@
 ---
-- name: Check Java Version and Path
+- name: Upgrade Java Version
   hosts: TRN
   gather_facts: yes
 
   tasks:
-    - name: Check Java version
+    # Step 1: Copy openjdk tar file from local to server tmp dir
+    - name: Copy openjdk tar file to server
+      ansible.builtin.copy:
+        src: /path/to/your/openjdk.tar.gz
+        dest: /tmp/openjdk.tar.gz
+
+    # Step 2: Untar the file in tmp dir
+    - name: Untar openjdk tar file
+      ansible.builtin.unarchive:
+        src: /tmp/openjdk.tar.gz
+        dest: /usr/local/  # Change this destination directory as per your requirement
+        remote_src: yes
+      become: yes
+
+    # Step 3: Check and save current java version
+    - name: Check current Java version
       command: java -version
-      register: java_version_output
+      register: current_java_version
       ignore_errors: true
 
-    - debug: 
-        var: java_version_output.stderr
+    - set_fact:
+        old_java_version: "{{ current_java_version.stderr | regex_replace('openjdk version \"([0-9]+\\.[0-9]+).*\".*', '\\1') }}"
+      when: current_java_version.rc == 0
 
-    - name: Extract Java version
-      set_fact:
-        java_version: "{{ java_version_output.stderr | regex_replace('openjdk version \"([0-9]+\\.[0-9]+).*\".*', '\\1') }}"
-      when: java_version_output.rc == 0
+    # Step 4: Check copied java version
+    - name: Check new Java version
+      shell: "/usr/local/bin/java -version"
+      register: new_java_version
+      ignore_errors: true
 
-    - debug:
-        var: java_version
+    - set_fact:
+        new_java_version: "{{ new_java_version.stderr | regex_replace('openjdk version \"([0-9]+\\.[0-9]+).*\".*', '\\1') }}"
+      when: new_java_version.rc == 0
 
-    - name: Check Java path
-      command: which java
-      register: java_path_output
-
-    - name: Display Java version and path
-      debug:
-        msg:
-          - "Java version: {{ java_version }}"
-          - "Java path: {{ java_path_output.stdout }}"
+    # Step 5: Compare old and new java versions
+    - name: Check if Java versions match
+      ansible.builtin.debug:
+        msg: "Java versions are not matching. You can proceed with Java upgrade."
+      when: old_java_version != new_java_version
