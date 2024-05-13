@@ -1,0 +1,25 @@
+---
+- name: Check Java Version and Path
+  hosts: TRN
+  gather_facts: yes
+
+  tasks:
+    - name: Check Java version
+      command: java -version
+      register: java_version_output
+      ignore_errors: true
+
+    - name: Extract Java version
+      set_fact:
+        java_version: "{{ java_version_output.stdout | regex_replace('openjdk version \"([0-9]+\\.[0-9]+).*\".*', '\\1') }}"
+      when: java_version_output.rc == 0
+
+    - name: Check Java path
+      command: which java
+      register: java_path_output
+
+    - name: Display Java version and path
+      debug:
+        msg:
+          - "Java version: {{ java_version }}"
+          - "Java path: {{ java_path_output.stdout }}"
