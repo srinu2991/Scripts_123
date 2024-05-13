@@ -9,10 +9,16 @@
       register: java_version_output
       ignore_errors: true
 
+    - debug: 
+        var: java_version_output.stderr
+
     - name: Extract Java version
       set_fact:
-        java_version: "{{ java_version_output.stdout | regex_replace('openjdk version \"([0-9]+\\.[0-9]+).*\".*', '\\1') }}"
+        java_version: "{{ java_version_output.stderr | regex_replace('openjdk version \"([0-9]+\\.[0-9]+).*\".*', '\\1') }}"
       when: java_version_output.rc == 0
+
+    - debug:
+        var: java_version
 
     - name: Check Java path
       command: which java
