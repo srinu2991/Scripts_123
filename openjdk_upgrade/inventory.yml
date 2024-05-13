@@ -1,15 +1,7 @@
 # inventory.yml
-all:
-  children:
-    JBOSS:
-      children:
-        production:
-          hosts:
-            server1:
-          vars:
-            ansible_user: service_account1
-        staging:
-          hosts:
-            server3:
-          vars:
-            ansible_user: service_account2
+JBOSS:
+  hosts:
+    server1:
+      ansible_user: service_account1
+    server3:
+      ansible_user: service_account2
