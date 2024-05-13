@@ -1,3 +1,18 @@
 commit check for ebms 123
 
 hello
+
+
+*******************
+
+[WARNING]:  * Failed to parse /inventory.yml with script plugin: problem running
+/inventory.yml --list ([Errno 8] Exec format error: '/inventory.yml')
+[WARNING]:  * Failed to parse /inventory.yml with auto plugin: no root 'plugin' key found,
+'/inventory.yml' is not a valid YAML inventory plugin config file
+[WARNING]:  * Failed to parse /inventory.yml with yaml plugin: Invalid data from file, expected
+dictionary and got:  hostname
+[WARNING]:  * Failed to parse /inventory.yml with ini plugin: Invalid host pattern 'all:' supplied,
+ending in ':' is not allowed, this character is reserved to provide a port.
+[WARNING]: Unable to parse /inventory.yml as an inventory source
+[WARNING]: No inventory was parsed, only implicit localhost is available
+[WARNING]: provided hosts list is empty, only localhost is available. Note that the implicit localhost does not match 'all'
