@@ -6,12 +6,10 @@ all:
         production:
           hosts:
             server1:
-            server2:
           vars:
             ansible_user: service_account1
         staging:
           hosts:
             server3:
-            server4:
           vars:
-            ansible_user: service_account1  # Or whichever service account you need
+            ansible_user: service_account2
