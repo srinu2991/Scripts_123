@@ -1,0 +1,16 @@
+# check_java_version.yml
+---
+- name: Check Java version
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Check Java version
+      command: java -version
+      register: java_version_output
+      ignore_errors: true  # Ignore errors in case Java is not installed
+
+    - name: Display Java version
+      debug:
+        msg: "Java version on {{ inventory_hostname }}: {{ java_version_output.stdout }}"
+      when: java_version_output.rc == 0  # Print only if the command was successful
