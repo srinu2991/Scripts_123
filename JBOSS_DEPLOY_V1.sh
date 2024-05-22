@@ -118,27 +118,28 @@ function clean_up_folders() {
     echo "Cleaning up folders... in Master Server"
     echo "****************************************"
 
-    # List of directories to be cleaned
-    master_dirs=(
-        "$ENV_HOME/$environment_name/domain/servers/*/data/content"
-        "$ENV_HOME/$environment_name/domain/servers/*/tmp"
-        "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan"
-        "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl"
-    )
+    # Check if ENV_HOME and environment_name are set
+    if [ -z "$ENV_HOME" ] || [ -z "$environment_name" ]; then
+        echo "Error: ENV_HOME or environment_name is not set."
+        exit 1
+    fi
 
-    # Loop through directories and remove contents if they exist
-    for dir in "${master_dirs[@]}"; do
-        if compgen -G "$dir" > /dev/null; then
-            # Delete contents and the directory itself
-            find "$dir" -mindepth 1 -exec rm -rf {} \; && rm -rf "$dir"
-            if [ $? -eq 0 ]; then
-                echo "Successfully cleaned $dir"
+    # Define the base path up to servers
+    base_path="$ENV_HOME/$environment_name/domain/servers"
+
+    # Directories to clean
+    directories=("data/content" "tmp" "data/infinispan" "data/wsdl")
+
+    # Loop through each server directory and clean up specified paths
+    for server_dir in "$base_path"/*; do
+        for dir in "${directories[@]}"; do
+            if [ -d "$server_dir/$dir" ]; then
+                echo "Removing contents of $server_dir/$dir"
+                rm -rf "$server_dir/$dir"/*
             else
-                echo "Failed to clean $dir"
+                echo "Warning: Directory $server_dir/$dir does not exist."
             fi
-        else
-            echo "Directory pattern $dir does not match any existing directories."
-        fi
+        done
     done
 
     if [ -z "$SERVERS_LIST" ]; then
@@ -150,24 +151,24 @@ function clean_up_folders() {
     cleanup_script=$(mktemp)
     cat <<EOSCRIPT >"$cleanup_script"
 #!/bin/bash
-slave_dirs=(
-    "$ENV_HOME/$environment_name/domain/servers/*/data/content"
-    "$ENV_HOME/$environment_name/domain/servers/*/tmp"
-    "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan"
-    "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl"
-)
-for dir in "\${slave_dirs[@]}"; do
-    if compgen -G "\$dir" > /dev/null; then
-        # Delete contents and the directory itself
-        find "\$dir" -mindepth 1 -exec rm -rf {} \; && rm -rf "\$dir"
-        if [ $? -eq 0 ]; then
-            echo "Successfully cleaned \$dir"
+
+if [ -z "\$ENV_HOME" ] || [ -z "\$environment_name" ]; then
+    echo "Error: ENV_HOME or environment_name is not set."
+    exit 1
+fi
+
+base_path="\$ENV_HOME/\$environment_name/domain/servers"
+directories=("data/content" "tmp" "data/infinispan" "data/wsdl")
+
+for server_dir in "\$base_path"/*; do
+    for dir in "\${directories[@]}"; do
+        if [ -d "\$server_dir/\$dir" ]; then
+            echo "Removing contents of \$server_dir/\$dir"
+            rm -rf "\$server_dir/\$dir"/*
         else
-            echo "Failed to clean \$dir"
+            echo "Warning: Directory \$server_dir/\$dir does not exist."
         fi
-    else
-        echo "Directory pattern \$dir does not match any existing directories."
-    fi
+    done
 done
 EOSCRIPT
 
@@ -180,16 +181,23 @@ EOSCRIPT
 
     IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
     for server in "${SERVERS[@]}"; do
-        echo "Cleaning up server: $server"
-        scp "$cleanup_script" "$SSH_USER@$server:~/cleanup_script.sh"
-        ssh "$SSH_USER@$server" "chmod +x ~/cleanup_script.sh; ~/cleanup_script.sh"
-        ssh "$SSH_USER@$server" "rm -f ~/cleanup_script.sh"
+        echo "Processing server: $server"
 
-        # Check if previous commands were successful
-        if [ $? -eq 0 ]; then
-            echo "Cleanup script executed successfully on $server"
-        else
-            echo "Cleanup script failed on $server"
+        scp "$cleanup_script" "$SSH_USER@$server:~/cleanup_script.sh"
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to copy script to $server"
+            continue
+        fi
+
+        ssh "$SSH_USER@$server" "chmod +x ~/cleanup_script.sh; ENV_HOME='$ENV_HOME' environment_name='$environment_name' bash ~/cleanup_script.sh"
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to execute script on $server"
+            continue
+        fi
+
+        ssh "$SSH_USER@$server" "rm -f ~/cleanup_script.sh"
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to remove script on $server"
         fi
     done
 
