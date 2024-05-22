@@ -129,7 +129,7 @@ function clean_up_folders() {
 
     # Loop through directories and remove contents if they exist
     for dir in "${master_dirs[@]}"; do
-        if [ -d "${dir%/*}" ]; then
+        if compgen -G "$dir" > /dev/null; then
             rm -rf "$dir"
             if [ $? -eq 0 ]; then
                 echo "Successfully cleaned $dir"
@@ -137,7 +137,7 @@ function clean_up_folders() {
                 echo "Failed to clean $dir"
             fi
         else
-            echo "Directory ${dir%/*} does not exist."
+            echo "Directory pattern $dir does not match any existing directories."
         fi
     done
 
@@ -146,7 +146,7 @@ function clean_up_folders() {
         exit 1
     fi
 
-    # Create a cleanup script
+    # Create a cleanup script for slave servers
     cleanup_script=$(mktemp)
     cat <<EOSCRIPT >"$cleanup_script"
 #!/bin/bash
@@ -157,7 +157,7 @@ slave_dirs=(
     "$ENV_HOME/$environment_name/servers/*/data/wsdl/*"
 )
 for dir in "\${slave_dirs[@]}"; do
-    if [ -d "\${dir%/*}" ]; then
+    if compgen -G "\$dir" > /dev/null; then
         rm -rf "\$dir"
         if [ $? -eq 0 ]; then
             echo "Successfully cleaned \$dir"
@@ -165,7 +165,7 @@ for dir in "\${slave_dirs[@]}"; do
             echo "Failed to clean \$dir"
         fi
     else
-        echo "Directory \${dir%/*} does not exist."
+        echo "Directory pattern \$dir does not match any existing directories."
     fi
 done
 EOSCRIPT
@@ -180,8 +180,8 @@ EOSCRIPT
     IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
     for server in "${SERVERS[@]}"; do
         echo "Cleaning up server: $server"
-        scp "$cleanup_script" "$SSH_USER@$server:~/cleanup_script.sh" && \
-        ssh "$SSH_USER@$server" "chmod +x ~/cleanup_script.sh; ~/cleanup_script.sh" && \
+        scp "$cleanup_script" "$SSH_USER@$server:~/cleanup_script.sh"
+        ssh "$SSH_USER@$server" "chmod +x ~/cleanup_script.sh; ~/cleanup_script.sh"
         ssh "$SSH_USER@$server" "rm -f ~/cleanup_script.sh"
 
         # Check if previous commands were successful
