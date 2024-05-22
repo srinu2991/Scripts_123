@@ -113,7 +113,6 @@ function check_ear_undeployed() {
     fi
 }
 
-# Function to clean up folders on master and slave servers
 function clean_up_folders() {
     echo "****************************************"
     echo "Cleaning up folders... in Master Server"
@@ -121,16 +120,17 @@ function clean_up_folders() {
 
     # List of directories to be cleaned
     master_dirs=(
-        "$ENV_HOME/$environment_name/domain/servers/*/data/content/*"
-        "$ENV_HOME/$environment_name/domain/servers/*/tmp/*"
-        "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan/*"
-        "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl/*"
+        "$ENV_HOME/$environment_name/domain/servers/*/data/content"
+        "$ENV_HOME/$environment_name/domain/servers/*/tmp"
+        "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan"
+        "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl"
     )
 
     # Loop through directories and remove contents if they exist
     for dir in "${master_dirs[@]}"; do
         if compgen -G "$dir" > /dev/null; then
-            rm -rf "$dir"
+            # Delete contents and the directory itself
+            find "$dir" -mindepth 1 -exec rm -rf {} \; && rm -rf "$dir"
             if [ $? -eq 0 ]; then
                 echo "Successfully cleaned $dir"
             else
@@ -151,14 +151,15 @@ function clean_up_folders() {
     cat <<EOSCRIPT >"$cleanup_script"
 #!/bin/bash
 slave_dirs=(
-    "$ENV_HOME/$environment_name/domain/servers/*/data/content/*"
-    "$ENV_HOME/$environment_name/domain/servers/*/tmp/*"
-    "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan/*"
-    "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl/*"
+    "$ENV_HOME/$environment_name/domain/servers/*/data/content"
+    "$ENV_HOME/$environment_name/domain/servers/*/tmp"
+    "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan"
+    "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl"
 )
 for dir in "\${slave_dirs[@]}"; do
     if compgen -G "\$dir" > /dev/null; then
-        rm -rf "\$dir"
+        # Delete contents and the directory itself
+        find "\$dir" -mindepth 1 -exec rm -rf {} \; && rm -rf "\$dir"
         if [ $? -eq 0 ]; then
             echo "Successfully cleaned \$dir"
         else
