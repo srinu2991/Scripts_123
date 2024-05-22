@@ -31,27 +31,30 @@ function stop_server_group() {
     sleep 1m
 
     # Call the function to check and kill JVMs on master and slave servers
-    check_and_kill_jvms_on_servers
+    check_and_kill_jvms_on_servers "$environment_name"
 }
 
 # Function to check if server group JVMs are down and kill any running JVMs on master and slave servers
 function check_and_kill_jvms_on_servers() {
+    local environment_name="$1"
+
     echo "**********************************"
-    echo "Checking if server group JVMs are down on master server..."
+    echo "Checking if server group JVMs are down on master server for environment: $environment_name"
     echo "**********************************"
+
     # Use ps and grep to check for the JVM processes on the master server
-    jvm_status_master=$(pgrep -f "$environment_name" | xargs ps -o pid= -o args= | awk '/-D\[Server:/ {gsub(/^-D\[Server:/, ""); gsub(/\].*$/, ""); print $1, $6}')
+    local jvm_status_master=$(pgrep -f "$environment_name" | xargs ps -o pid= -o args= | awk '/-D\[Server:/ {gsub(/^-D\[Server:/, ""); gsub(/\].*$/, ""); print $1, $6}')
 
     # Print the output (PID and JVM name) on the master server
     echo "$jvm_status_master"
 
     # Extract PID from the output on the master server (assuming PID is the first column)
-    pid_master=$(echo "$jvm_status_master" | awk '{print $1}')
+    local pid_master=$(echo "$jvm_status_master" | awk '{print $1}')
 
     # Kill the process on the master server
     if [ -n "$pid_master" ]; then
         echo "Killing process with PID: $pid_master on the master server"
-        kill -9 "$pid_master"
+        kill -15 "$pid_master" || kill -9 "$pid_master"
     else
         echo "No matching process found on the master server."
     fi
@@ -60,11 +63,33 @@ function check_and_kill_jvms_on_servers() {
     IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
     for server in "${SERVERS[@]}"; do
         echo "**********************************"
-        echo "Checking if server group JVMs are down on slave server $server..."
+        echo "Checking if server group JVMs are down on slave server $server for environment: $environment_name"
         echo "**********************************"
 
         # Use ssh to execute the check and kill process on the slave server
-        ssh "$SSH_USER@$server" "$(declare -f check_and_kill_jvms); check_and_kill_jvms"
+        local ssh_command="declare -f check_and_kill_jvms_on_servers); check_and_kill_jvms_on_servers \"$environment_name\""
+        ssh "$SSH_USER@$server" "$ssh_command"
+
+        local ssh_exit_status=$?
+        if [ $ssh_exit_status -eq 0 ]; then
+            echo "Command executed successfully on $server"
+        else
+            echo "Error executing command on $server. Exit status: $ssh_exit_status"
+            case $ssh_exit_status in
+                255)
+                    echo "SSH connection error: Server $server unreachable"
+                    # Handle unreachable server error
+                    ;;
+                127)
+                    echo "SSH command execution error: Command not found"
+                    # Handle command not found error
+                    ;;
+                *)
+                    echo "Unhandled SSH error. Check logs for more details."
+                    # Handle other SSH errors
+                    ;;
+            esac
+        fi
 
         echo "**********************************"
         echo "Finished checking on slave server $server."
