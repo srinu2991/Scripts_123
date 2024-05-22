@@ -118,36 +118,78 @@ function clean_up_folders() {
     echo "****************************************"
     echo "Cleaning up folders... in Master Server"
     echo "****************************************"
-    rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/content/*"
-    rm -rf "$ENV_HOME/$environment_name/domain/servers/*/tmp/*"
-    rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan/*"
-    rm -rf "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl/*"
+
+    # List of directories to be cleaned
+    master_dirs=(
+        "$ENV_HOME/$environment_name/domain/servers/*/data/content/*"
+        "$ENV_HOME/$environment_name/domain/servers/*/tmp/*"
+        "$ENV_HOME/$environment_name/domain/servers/*/data/infinispan/*"
+        "$ENV_HOME/$environment_name/domain/servers/*/data/wsdl/*"
+    )
+
+    # Loop through directories and remove contents if they exist
+    for dir in "${master_dirs[@]}"; do
+        if [ -d "${dir%/*}" ]; then
+            rm -rf "$dir"
+            if [ $? -eq 0 ]; then
+                echo "Successfully cleaned $dir"
+            else
+                echo "Failed to clean $dir"
+            fi
+        else
+            echo "Directory ${dir%/*} does not exist."
+        fi
+    done
 
     if [ -z "$SERVERS_LIST" ]; then
         echo "Error: Servers list not provided."
         exit 1
     fi
+
     # Create a cleanup script
     cleanup_script=$(mktemp)
     cat <<EOSCRIPT >"$cleanup_script"
 #!/bin/bash
-for dir in "$ENV_HOME/$environment_name"/servers/*; do
-    rm -rf "\$dir/data/content"/*
-    rm -rf "\$dir/tmp"/*
-    rm -rf "\$dir/data/infinispan"/*
-    rm -rf "\$dir/data/wsdl"/*
+slave_dirs=(
+    "$ENV_HOME/$environment_name/servers/*/data/content/*"
+    "$ENV_HOME/$environment_name/servers/*/tmp/*"
+    "$ENV_HOME/$environment_name/servers/*/data/infinispan/*"
+    "$ENV_HOME/$environment_name/servers/*/data/wsdl/*"
+)
+for dir in "\${slave_dirs[@]}"; do
+    if [ -d "\${dir%/*}" ]; then
+        rm -rf "\$dir"
+        if [ $? -eq 0 ]; then
+            echo "Successfully cleaned \$dir"
+        else
+            echo "Failed to clean \$dir"
+        fi
+    else
+        echo "Directory \${dir%/*} does not exist."
+    fi
 done
 EOSCRIPT
+
     # Set execution permissions for the cleanup script
     chmod +x "$cleanup_script"
+
     echo "****************************************"
     echo "Cleaning up folders... in slave servers"
     echo "****************************************"
+
     IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
     for server in "${SERVERS[@]}"; do
-        scp "$cleanup_script" "$SSH_USER@$server:~/cleanup_script.sh"
-        ssh "$SSH_USER@$server" "chmod +x ~/cleanup_script.sh; bash ~/cleanup_script.sh"
+        echo "Cleaning up server: $server"
+        scp "$cleanup_script" "$SSH_USER@$server:~/cleanup_script.sh" && \
+        ssh "$SSH_USER@$server" "chmod +x ~/cleanup_script.sh; ~/cleanup_script.sh" && \
         ssh "$SSH_USER@$server" "rm -f ~/cleanup_script.sh"
+
+        # Check if previous commands were successful
+        if [ $? -eq 0 ]; then
+            echo "Cleanup script executed successfully on $server"
+        else
+            echo "Cleanup script failed on $server"
+        fi
     done
 
     # Clean up the temporary cleanup script
