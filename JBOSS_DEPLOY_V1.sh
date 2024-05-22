@@ -151,10 +151,10 @@ function clean_up_folders() {
     cat <<EOSCRIPT >"$cleanup_script"
 #!/bin/bash
 slave_dirs=(
-    "$ENV_HOME/$environment_name/servers/*/data/content/*"
-    "$ENV_HOME/$environment_name/servers/*/tmp/*"
-    "$ENV_HOME/$environment_name/servers/*/data/infinispan/*"
-    "$ENV_HOME/$environment_name/servers/*/data/wsdl/*"
+    "$ENV_HOME/$environment_name/domain/servers/*/data/content/*"
+    "$ENV_HOME/$environment_name/domain/servers/*/tmp/*"
+    "ENV_HOME/$environment_name/domain/servers/*/data/infinispan/*"
+    "ENV_HOME/$environment_name/domain/servers/*/data/wsdl/*"
 )
 for dir in "\${slave_dirs[@]}"; do
     if compgen -G "\$dir" > /dev/null; then
