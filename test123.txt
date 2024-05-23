@@ -16,3 +16,8 @@ ending in ':' is not allowed, this character is reserved to provide a port.
 [WARNING]: Unable to parse /inventory.yml as an inventory source
 [WARNING]: No inventory was parsed, only implicit localhost is available
 [WARNING]: provided hosts list is empty, only localhost is available. Note that the implicit localhost does not match 'all'
+
+
+
+check this 
+bash: -c: line 0: syntax error near unexpected token `)'
