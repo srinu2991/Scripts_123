@@ -108,6 +108,7 @@ EOF
         echo "**********************************"
     done
 }
+
 # Function to undeploy EAR
 function undeploy_ear() {
     if [ -z "$EAR_NAME" ]; then
@@ -257,7 +258,7 @@ function copy_properties_jar() {
     echo "Copying properties jar into Master Server"
     echo "******************************************"
 
-    if [[ "$environment_name" == "CCWPUAT1" ]]; then
+    if [[ "$environment_name" == "EAP7.4_ENHUAT" ]]; then
         cp "$SCRIPT_PATH"/"$environment_name"/online/properties/enh_uat-properties.jar "$ENV_HOME"/"$environment_name"/modules/ieapp/sharedlib/main/properties.jar
     elif [[ "$environment_name" == "EAP7.4_UAT" ]]; then
         cp "$SCRIPT_PATH"/"$environment_name"/online/properties/uat1-properties.jar "$ENV_HOME"/"$environment_name"/modules/ieapp/sharedlib/main/properties.jar
@@ -277,7 +278,7 @@ function copy_properties_jar() {
 
     IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
     for server in "${SERVERS[@]}"; do
-        if [[ "$environment_name" == "CCWPUAT1" ]]; then
+        if [[ "$environment_name" == "EAP7.4_ENHUAT" ]]; then
             scp "$SCRIPT_PATH"/"$environment_name"/online/properties/enh_uat-properties.jar "$server":"$ENV_HOME"/"$environment_name"/modules/ieapp/sharedlib/main/properties.jar
         elif [[ "$environment_name" == "EAP7.4_UAT" ]]; then
             scp "$SCRIPT_PATH"/"$environment_name"/online/properties/uat1-properties.jar "$server":"$ENV_HOME"/"$environment_name"/modules/ieapp/sharedlib/main/properties.jar
