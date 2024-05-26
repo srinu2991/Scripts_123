@@ -66,9 +66,21 @@ function check_and_kill_jvms_on_servers() {
         echo "Checking if server group JVMs are down on slave server $server for environment: $environment_name"
         echo "**********************************"
 
-        # Use ssh to execute the check and kill process on the slave server
-        local ssh_command="declare -f check_and_kill_jvms_on_servers); check_and_kill_jvms_on_servers \"$environment_name\""
-        ssh "$SSH_USER@$server" "$ssh_command"
+        # Define the remote command to be executed on the slave server
+        local remote_command=$(cat <<EOF
+pgrep -f "$environment_name" | xargs ps -o pid= -o args= | awk '/-D\[Server:/ {gsub(/^-D\[Server:/, ""); gsub(/\].*$/, ""); print \$1, \$6}' | while read -r pid jvm; do
+    if [ -n "\$pid" ]; then
+        echo "Killing process with PID: \$pid on slave server $server"
+        kill -15 "\$pid" || kill -9 "\$pid"
+    else
+        echo "No matching process found on slave server $server."
+    fi
+done
+EOF
+)
+
+        # Execute the command on the slave server via SSH
+        ssh "$SSH_USER@$server" "$remote_command"
 
         local ssh_exit_status=$?
         if [ $ssh_exit_status -eq 0 ]; then
@@ -96,7 +108,6 @@ function check_and_kill_jvms_on_servers() {
         echo "**********************************"
     done
 }
-
 # Function to undeploy EAR
 function undeploy_ear() {
     if [ -z "$EAR_NAME" ]; then
