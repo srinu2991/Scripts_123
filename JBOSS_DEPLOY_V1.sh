@@ -150,6 +150,39 @@ function check_ear_undeployed() {
     fi
 }
 
+# Function to stop the slave host and process controller
+function stop_slave_host_and_process_controller() {
+    echo "**********************************"
+    echo "Stopping slave host and process controller..."
+    echo "**********************************"
+
+    IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
+    for server in "${SERVERS[@]}"; do
+        echo "Stopping processes on slave server $server for environment: $environment_name"
+
+        local remote_command=$(cat <<EOF
+pkill -f "$environment_name"
+EOF
+)
+
+        ssh "$SSH_USER@$server" "$remote_command"
+
+        local ssh_exit_status=$?
+        if [ $ssh_exit_status -eq 0 ]; then
+            echo "Processes stopped successfully on $server"
+        else
+            echo "Error stopping processes on $server. Exit status: $ssh_exit_status"
+        fi
+
+        echo "**********************************"
+        echo "Finished stopping processes on slave server $server."
+        echo "**********************************"
+    done
+
+    echo "Stopping processes on master server for environment: $environment_name"
+    pkill -f "$environment_name"
+}
+
 function clean_up_folders() {
     echo "****************************************"
     echo "Cleaning up folders... in Master Server"
@@ -490,6 +523,7 @@ function execute_all_options() {
     stop_server_group
     undeploy_ear
     check_ear_undeployed
+    stop_slave_host_and_process_controller
     clean_up_folders
     copy_properties_jar
     compare_ear_folders
@@ -528,6 +562,7 @@ while [[ $# -gt 0 ]]; do
     -s) stop_server_group ;;
     -u) undeploy_ear ;;
     -k) check_ear_undeployed ;;
+    -t) stop_slave_host_and_process_controller ;;
     -c) clean_up_folders ;;
     -l) copy_properties_jar ;;
     -d) compare_ear_folders ;;
