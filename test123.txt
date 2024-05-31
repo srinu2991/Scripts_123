@@ -158,3 +158,47 @@ EOF
         echo "**********************************"
     done
 }
+
+####################################
+
+function stop_slave_host_and_process_controller() {
+    echo "**********************************"
+    echo "Stopping slave host and process controller..."
+    echo "**********************************"
+
+    IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
+    for server in "${SERVERS[@]}"; do
+        echo "Stopping processes on slave server $server for environment: $environment_name"
+
+        local remote_command=$(cat <<EOF
+pkill -f "$environment_name"
+sleep 15
+pgrep -f "$environment_name" && pkill -9 -f "$environment_name" && echo "Forcefully killed remaining processes on $server" || echo "All processes terminated on $server"
+EOF
+)
+
+        ssh "$SSH_USER@$server" "$remote_command"
+
+        local ssh_exit_status=$?
+        if [ $ssh_exit_status -eq 0 ]; then
+            echo "Processes stopped successfully on $server"
+        else
+            echo "Error stopping processes on $server. Exit status: $ssh_exit_status"
+        fi
+
+        echo "**********************************"
+        echo "Finished stopping processes on slave server $server."
+        echo "**********************************"
+    done
+
+    echo "Stopping processes on master server for environment: $environment_name"
+    pkill -f "$environment_name"
+    sleep 15
+    if pgrep -f "$environment_name"; then
+        echo "Forcefully killing remaining processes on master server"
+        pkill -9 -f "$environment_name"
+    else
+        echo "All processes terminated on master server"
+    fi
+}
+
