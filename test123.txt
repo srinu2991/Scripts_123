@@ -201,4 +201,6 @@ EOF
         echo "All processes terminated on master server"
     fi
 }
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+$ENV_HOME/$environment_name/bin/domain.sh --host-config=host-master.xml -Djboss.domain.base.dir=$ENV_HOME/$environment_name/domain
