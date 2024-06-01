@@ -204,3 +204,48 @@ EOF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 $ENV_HOME/$environment_name/bin/domain.sh --host-config=host-master.xml -Djboss.domain.base.dir=$ENV_HOME/$environment_name/domain
+
+
+
+5555555555555555555555555555555555
+
+# Function to start process and host controller on master server
+function start_process_and_host_controller_master() {
+    echo "**********************************"
+    echo "Starting process and host controller on master server..."
+    echo "**********************************"
+
+    if ! "$ENV_HOME/$environment_name/bin/domain.sh" --host-config=host-master.xml -Djboss.domain.base.dir="$ENV_HOME/$environment_name/domain"; then
+        echo "Failed to start process and host controller on master server"
+        exit 1
+    else
+        echo "Successfully started process and host controller on master server"
+    fi
+}
+
+# Function to start process and host controller on slave servers
+function start_process_and_host_controller_slaves() {
+    echo "**********************************"
+    echo "Starting process and host controller on slave servers..."
+    echo "**********************************"
+
+    IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
+    for server in "${SERVERS[@]}"; do
+        echo "Starting process and host controller on slave server $server"
+
+        local remote_command=$(cat <<EOF
+"$ENV_HOME/$environment_name/bin/domain.sh" --host-config=host-slave.xml -Djboss.domain.base.dir="$ENV_HOME/$environment_name/domain"
+EOF
+)
+
+        ssh "$SSH_USER@$server" "$remote_command"
+
+        local ssh_exit_status=$?
+        if [ $ssh_exit_status -eq 0 ]; then
+            echo "Successfully started process and host controller on slave server $server"
+        else
+            echo "Failed to start process and host controller on slave server $server. Exit status: $ssh_exit_status"
+        fi
+    done
+}
+
