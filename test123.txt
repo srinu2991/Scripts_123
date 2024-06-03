@@ -489,3 +489,66 @@ EOF
         fi
     done
 }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# Function to start process and host controller on master server
+function start_process_and_host_controller_master() {
+    echo "**********************************"
+    echo "Starting process and host controller on master server..."
+    echo "**********************************"
+
+    if ! "$ENV_HOME/$environment_name/bin/domain.sh" --host-config=host-master.xml -Djboss.domain.base.dir="$ENV_HOME/$environment_name/domain" > "$ENV_HOME/$environment_name/boot.log" 2>&1 &; then
+        echo "Failed to start process and host controller on master server"
+        exit 1
+    else
+        echo "Successfully started process and host controller on master server"
+    fi
+
+    # Sleep for 20 seconds to allow the process to start
+    sleep 20
+
+    # Check if the process is running
+    if pgrep -f "$ENV_HOME/$environment_name/bin/domain.sh" > /dev/null; then
+        echo "Process is running on master server"
+    else
+        echo "Process failed to start on master server"
+        exit 1
+    fi
+}
+
+# Function to start process and host controller on slave servers
+function start_process_and_host_controller_slaves() {
+    echo "**********************************"
+    echo "Starting process and host controller on slave servers..."
+    echo "**********************************"
+
+    IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
+    for server in "${SERVERS[@]}"; do
+        echo "Starting process and host controller on slave server $server"
+
+        local remote_command=$(cat <<EOF
+"$ENV_HOME/$environment_name/bin/domain.sh" --host-config=host-slave.xml -Djboss.domain.base.dir="$ENV_HOME/$environment_name/domain" > "$ENV_HOME/$environment_name/boot.log" 2>&1 &
+EOF
+)
+
+        ssh "$SSH_USER@$server" "$remote_command"
+
+        local ssh_exit_status=$?
+        if [ $ssh_exit_status -eq 0 ]; then
+            echo "Successfully started process and host controller on slave server $server"
+        else
+            echo "Failed to start process and host controller on slave server $server. Exit status: $ssh_exit_status"
+        fi
+
+        # Sleep for 20 seconds to allow the process to start
+        sleep 20
+
+        # Check if the process is running
+        if ssh "$SSH_USER@$server" pgrep -f "$ENV_HOME/$environment_name/bin/domain.sh" > /dev/null; then
+            echo "Process is running on slave server $server"
+        else
+            echo "Process failed to start on slave server $server"
+        fi
+    done
+}
