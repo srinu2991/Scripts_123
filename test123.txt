@@ -726,3 +726,62 @@ export SSH_USER="your_ssh_user"
 
 stop_slave_host_and_process_controller
 
+
+
+666666666666666666666666666666666666666666666666666666666666
+
+function stop_slave_host_and_process_controller() {
+    echo "**********************************"
+    echo "Stopping slave host and process controller..."
+    echo "**********************************"
+
+    IFS=',' read -ra SERVERS <<< "$SERVERS_LIST"
+    for server in "${SERVERS[@]}"; do
+        echo "Stopping processes on slave server $server for environment: $environment_name"
+
+        remote_command=$(cat <<EOF
+echo "Running pkill for $environment_name on $server"
+pkill -f "$environment_name" || echo "No processes found to kill on $server"
+echo "Sleeping for 15 seconds on $server"
+sleep 15
+echo "Checking for remaining processes on $server"
+if pgrep -f "$environment_name"; then
+    echo "Forcefully killing remaining processes on $server"
+    pkill -9 -f "$environment_name"
+    echo "Forcefully killed remaining processes on $server"
+else
+    echo "All processes terminated on $server"
+fi
+EOF
+)
+
+        if ! ssh -o ConnectTimeout=10 "$SSH_USER@$server" "$remote_command"; then
+            echo "Error connecting to $server"
+            continue
+        fi
+
+        echo "**********************************"
+        echo "Finished stopping processes on slave server $server."
+        echo "**********************************"
+    done
+
+    echo "Stopping processes on master server for environment: $environment_name"
+    pkill -f "$environment_name" || echo "No processes found to kill on master server"
+    echo "Sleeping for 15 seconds on master server"
+    sleep 15
+    echo "Checking for remaining processes on master server"
+    if pgrep -f "$environment_name"; then
+        echo "Forcefully killing remaining processes on master server"
+        pkill -9 -f "$environment_name"
+        echo "Forcefully killed remaining processes on master server"
+    else
+        echo "All processes terminated on master server"
+    fi
+}
+
+# Example usage
+# SERVERS_LIST="server1,server2,server3"
+# SSH_USER="your_ssh_username"
+# environment_name="your_environment_name"
+# stop_slave_host_and_process_controller
+
