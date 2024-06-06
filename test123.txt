@@ -785,3 +785,82 @@ EOF
 # environment_name="your_environment_name"
 # stop_slave_host_and_process_controller
 
+
+
+
+function stop_slave_host_and_process_controller() {
+    echo "**********************************"
+    echo "Stopping slave host and process controller..."
+    echo "**********************************"
+
+    IFS=',' read -ra SERVERS <<< "$SERVERS_LIST"
+    for server in "${SERVERS[@]}"; do
+        echo "Stopping processes on slave server $server for environment: $environment_name"
+
+        remote_command=$(cat <<EOF
+echo "Listing processes for $environment_name on $server"
+pids=\$(pgrep -f "$environment_name")
+if [ -z "\$pids" ]; then
+    echo "No processes found for $environment_name on $server"
+else
+    echo "Found processes for $environment_name on $server: \$pids"
+    echo "Killing processes for $environment_name on $server"
+    kill \$pids
+    sleep 5
+    echo "Checking if processes are killed on $server"
+    if pgrep -f "$environment_name"; then
+        echo "Processes still running on $server, force killing"
+        kill -9 \$pids
+        if pgrep -f "$environment_name"; then
+            echo "Failed to kill some processes on $server"
+        else
+            echo "Forcefully killed all processes on $server"
+        fi
+    else
+        echo "Successfully killed all processes on $server"
+    fi
+fi
+EOF
+)
+
+        # Run the remote command
+        ssh -o ConnectTimeout=10 "$SSH_USER@$server" "$remote_command"
+        if [ $? -ne 0 ]; then
+            echo "Error connecting to $server"
+            continue
+        fi
+
+        echo "**********************************"
+        echo "Finished stopping processes on slave server $server."
+        echo "**********************************"
+    done
+
+    echo "Stopping processes on master server for environment: $environment_name"
+    pids=$(pgrep -f "$environment_name")
+    if [ -z "$pids" ]; then
+        echo "No processes found for $environment_name on master server"
+    else
+        echo "Found processes for $environment_name on master server: $pids"
+        echo "Killing processes for $environment_name on master server"
+        kill $pids
+        sleep 5
+        echo "Checking if processes are killed on master server"
+        if pgrep -f "$environment_name"; then
+            echo "Processes still running on master server, force killing"
+            kill -9 $pids
+            if pgrep -f "$environment_name"; then
+                echo "Failed to kill some processes on master server"
+            else
+                echo "Forcefully killed all processes on master server"
+            fi
+        else
+            echo "Successfully killed all processes on master server"
+        fi
+    fi
+}
+
+# Example usage
+# SERVERS_LIST="server1,server2,server3"
+# SSH_USER="your_ssh_username"
+# environment_name="your_environment_name"
+# stop_slave_host_and_process_controller
