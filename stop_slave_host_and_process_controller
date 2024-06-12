@@ -1,14 +1,12 @@
-# Function to stop the slave host and process controller
 function stop_slave_host_and_process_controller() {
     echo "**********************************"
     echo "Stopping slave host and process controller..."
     echo "**********************************"
 
-    # Function to stop processes on a server
-    function stop_processes_on_server() {
-        local server=$1
+    IFS=',' read -ra SERVERS <<< "$SERVERS_LIST"
+    for server in "${SERVERS[@]}"; do
         echo "**********************************"
-        echo "Stopping processes on server $server for environment: $environment_name"
+        echo "Stopping processes on slave server $server for environment: $environment_name"
         echo "**********************************"
 
         # Create a temporary script with the commands to run on the remote server
@@ -23,7 +21,6 @@ else
     echo "Found processes for $environment_name on $server: \$pids"
     echo "Killing processes for $environment_name on $server with kill -9"
     kill -9 \$pids
-    echo "Waiting for 20 seconds..."
     sleep 20
     echo "Checking if processes are killed on $server"
     pids=\$(pgrep -f "$environment_name")
@@ -33,7 +30,6 @@ else
         echo "Processes still running on $server: \$pids"
         echo "Killing processes for $environment_name on $server again with kill -9"
         kill -9 \$pids
-        echo "Waiting for 20 seconds..."
         sleep 20
         pids=\$(pgrep -f "$environment_name")
         if [ -z "\$pids" ]; then
@@ -51,7 +47,7 @@ EOF
         if [ $scp_exit_status -ne 0 ]; then
             echo "Error copying script to $server with exit status $scp_exit_status"
             rm -f $remote_script
-            return 1
+            continue
         fi
 
         # Run the script on the remote server
@@ -70,7 +66,6 @@ EOF
                     echo "Unhandled SSH error. Check logs for more details."
                     ;;
             esac
-            return 1
         fi
 
         # Clean up the temporary script from the remote server
@@ -80,40 +75,32 @@ EOF
         rm -f $remote_script
 
         echo "**********************************"
-        echo "Finished stopping processes on server $server."
+        echo "Finished stopping processes on slave server $server."
         echo "**********************************"
-    }
-
-    # Stop processes on all slave servers
-    IFS=',' read -ra SERVERS <<< "$SERVERS_LIST"
-    for server in "${SERVERS[@]}"; do
-        stop_processes_on_server "$server"
     done
 
-    # Stop processes on the master server
     echo "**********************************"
     echo "Stopping processes on master server for environment: $environment_name"
     echo "**********************************"
-    pids=$(pgrep -f "$environment_name")
+    current_script_pid=$$
+    pids=$(pgrep -f "$environment_name" | grep -v $current_script_pid)
     if [ -z "$pids" ]; then
         echo "No processes found for $environment_name on master server"
     else
         echo "Found processes for $environment_name on master server: $pids"
         echo "Killing processes for $environment_name on master server with kill -9"
         kill -9 $pids
-        echo "Waiting for 20 seconds..."
         sleep 20
         echo "Checking if processes are killed on master server"
-        pids=$(pgrep -f "$environment_name")
+        pids=$(pgrep -f "$environment_name" | grep -v $current_script_pid)
         if [ -z "$pids" ]; then
             echo "Successfully killed all processes on master server"
         else
             echo "Processes still running on master server: $pids"
             echo "Killing processes for $environment_name on master server again with kill -9"
             kill -9 $pids
-            echo "Waiting for 20 seconds..."
             sleep 20
-            pids=$(pgrep -f "$environment_name")
+            pids=$(pgrep -f "$environment_name" | grep -v $current_script_pid)
             if [ -z "$pids" ]; then
                 echo "Successfully killed all processes on master server after second attempt"
             else
@@ -121,7 +108,6 @@ EOF
             fi
         fi
     fi
-
     echo "**********************************"
     echo "Finished stopping processes on master server."
     echo "**********************************"
