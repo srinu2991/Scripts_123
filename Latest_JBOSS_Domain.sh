@@ -209,8 +209,20 @@ EOF
 
         # Run the remote command
         ssh -o ConnectTimeout=10 "$SSH_USER@$server" "$remote_command"
-        if [ $? -ne 0 ]; then
-            echo "Error connecting to $server"
+        local ssh_exit_status=$?
+        if [ $ssh_exit_status -ne 0 ]; then
+            echo "Error connecting to $server with exit status $ssh_exit_status"
+            case $ssh_exit_status in
+                255)
+                    echo "SSH connection error: Server $server unreachable"
+                    ;;
+                127)
+                    echo "SSH command execution error: Command not found"
+                    ;;
+                *)
+                    echo "Unhandled SSH error. Check logs for more details."
+                    ;;
+            esac
             continue
         fi
 
@@ -251,7 +263,6 @@ EOF
     echo "Finished stopping processes on master server."
     echo "**********************************"
 }
-
 
 function clean_up_folders() {
     echo "****************************************"
