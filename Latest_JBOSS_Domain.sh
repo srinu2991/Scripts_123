@@ -171,24 +171,47 @@ function stop_slave_host_and_process_controller() {
     echo "Stopping slave host and process controller..."
     echo "**********************************"
 
-    IFS=',' read -ra SERVERS <<<"$SERVERS_LIST"
+    IFS=',' read -ra SERVERS <<< "$SERVERS_LIST"
     for server in "${SERVERS[@]}"; do
+        echo "**********************************"
         echo "Stopping processes on slave server $server for environment: $environment_name"
+        echo "**********************************"
 
-        local remote_command=$(cat <<EOF
-pkill -f "$environment_name"
-sleep 15
-pgrep -f "$environment_name" && pkill -9 -f "$environment_name" && echo "Forcefully killed remaining processes on $server" || echo "All processes terminated on $server"
+        remote_command=$(cat <<EOF
+echo "Listing processes for $environment_name on $server"
+pids=\$(pgrep -f "$environment_name")
+if [ -z "\$pids" ]; then
+    echo "No processes found for $environment_name on $server"
+else
+    echo "Found processes for $environment_name on $server: \$pids"
+    echo "Killing processes for $environment_name on $server with kill -9"
+    kill -9 \$pids
+    sleep 20
+    echo "Checking if processes are killed on $server"
+    pids=\$(pgrep -f "$environment_name")
+    if [ -z "\$pids" ]; then
+        echo "Successfully killed all processes on $server"
+    else
+        echo "Processes still running on $server: \$pids"
+        echo "Killing processes for $environment_name on $server again with kill -9"
+        kill -9 \$pids
+        sleep 20
+        pids=\$(pgrep -f "$environment_name")
+        if [ -z "\$pids" ]; then
+            echo "Successfully killed all processes on $server after second attempt"
+        else
+            echo "Failed to kill some processes on $server after second attempt"
+        fi
+    fi
+fi
 EOF
 )
 
-        ssh "$SSH_USER@$server" "$remote_command"
-
-        local ssh_exit_status=$?
-        if [ $ssh_exit_status -eq 0 ]; then
-            echo "Processes stopped successfully on $server"
-        else
-            echo "Error stopping processes on $server. Exit status: $ssh_exit_status"
+        # Run the remote command
+        ssh -o ConnectTimeout=10 "$SSH_USER@$server" "$remote_command"
+        if [ $? -ne 0 ]; then
+            echo "Error connecting to $server"
+            continue
         fi
 
         echo "**********************************"
@@ -196,16 +219,39 @@ EOF
         echo "**********************************"
     done
 
+    echo "**********************************"
     echo "Stopping processes on master server for environment: $environment_name"
-    pkill -f "$environment_name"
-    sleep 15
-    if pgrep -f "$environment_name"; then
-        echo "Forcefully killing remaining processes on master server"
-        pkill -9 -f "$environment_name"
+    echo "**********************************"
+    pids=$(pgrep -f "$environment_name")
+    if [ -z "$pids" ]; then
+        echo "No processes found for $environment_name on master server"
     else
-        echo "All processes terminated on master server"
+        echo "Found processes for $environment_name on master server: $pids"
+        echo "Killing processes for $environment_name on master server with kill -9"
+        kill -9 $pids
+        sleep 20
+        echo "Checking if processes are killed on master server"
+        pids=$(pgrep -f "$environment_name")
+        if [ -z "$pids" ]; then
+            echo "Successfully killed all processes on master server"
+        else
+            echo "Processes still running on master server: $pids"
+            echo "Killing processes for $environment_name on master server again with kill -9"
+            kill -9 $pids
+            sleep 20
+            pids=$(pgrep -f "$environment_name")
+            if [ -z "$pids" ]; then
+                echo "Successfully killed all processes on master server after second attempt"
+            else
+                echo "Failed to kill some processes on master server after second attempt"
+            fi
+        fi
     fi
+    echo "**********************************"
+    echo "Finished stopping processes on master server."
+    echo "**********************************"
 }
+
 
 function clean_up_folders() {
     echo "****************************************"
@@ -358,11 +404,22 @@ function start_process_and_host_controller_master() {
     echo "Starting process and host controller on master server..."
     echo "**********************************"
 
-    if ! "$ENV_HOME/$environment_name/bin/domain.sh" --host-config=host-master.xml -Djboss.domain.base.dir="$ENV_HOME/$environment_name/domain"; then
+    if "$ENV_HOME/$environment_name/bin/domain.sh" --host-config=host-master.xml -Djboss.domain.base.dir="$ENV_HOME/$environment_name/domain" > "$ENV_HOME/$environment_name/boot.log" 2>&1 & then
+        echo "Successfully started process and host controller on master server"
+    else
         echo "Failed to start process and host controller on master server"
         exit 1
+    fi
+
+    # Sleep for 20 seconds to allow the process to start
+    sleep 20
+
+    # Check if the process is running
+    if pgrep -f "$ENV_HOME/$environment_name/bin/domain.sh" > /dev/null; then
+        echo "Process is running on master server"
     else
-        echo "Successfully started process and host controller on master server"
+        echo "Process failed to start on master server"
+        exit 1
     fi
 }
 
@@ -377,7 +434,7 @@ function start_process_and_host_controller_slaves() {
         echo "Starting process and host controller on slave server $server"
 
         local remote_command=$(cat <<EOF
-"$ENV_HOME/$environment_name/bin/domain.sh" --host-config=host-slave.xml -Djboss.domain.base.dir="$ENV_HOME/$environment_name/domain"
+"$ENV_HOME/$environment_name/bin/domain.sh" --host-config=host-slave.xml -Djboss.domain.base.dir="$ENV_HOME/$environment_name/domain" > "$ENV_HOME/$environment_name/boot.log" 2>&1 &
 EOF
 )
 
@@ -389,9 +446,18 @@ EOF
         else
             echo "Failed to start process and host controller on slave server $server. Exit status: $ssh_exit_status"
         fi
+
+        # Sleep for 20 seconds to allow the process to start
+        sleep 20
+
+        # Check if the process is running
+        if ssh "$SSH_USER@$server" pgrep -f "$ENV_HOME/$environment_name/bin/domain.sh" > /dev/null; then
+            echo "Process is running on slave server $server"
+        else
+            echo "Process failed to start on slave server $server"
+        fi
     done
 }
-
 # Function to compare EAR between two folders
 function compare_ear_folders() {
     if [ -z "$EAR_NAME" ]; then
@@ -548,9 +614,11 @@ function display_usage() {
 # Function to handle errors with the trap command
 function handle_error() {
     local exit_code="$?"
-    echo "Script encountered an error with exit code $exit_code"
-    exit 1
+    local line_no=$1
+    echo "Script encountered an error with exit code $exit_code at $line_no"
+    exit $exit_code
 }
+trap 'handle_error $LINENO' ERR
 
 # Function to source the config file
 function source_config_file() {
