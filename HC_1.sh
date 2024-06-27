@@ -68,11 +68,10 @@ echo "HTML table generated in table.html"
 
 
 111111111111111111111111111111111111111111111111111111
-
 #!/bin/bash
 
 # Define the column names
-column_names=("Application" "Last checked" "Status")
+column_names=("Application" "Status" "Last Checked")
 
 # Define the first column values
 first_column_values=("Worker Portal" "Customer Portal" "Provider Portal" "Reporting Portal" "EASL Endpoint" "Business Rules Engine Endpoint" "Adobe Notices Web Services" "ForgeRock" "MCI Endpoint" "Worker Portal DB RW Mode")
@@ -93,7 +92,6 @@ cat <<EOF > $OUTPUT_FILE
         table {
             width: 50%;
             border-collapse: collapse;
-            margin: 0 auto;
         }
         table, th, td {
             border: 1px solid black;
@@ -101,14 +99,6 @@ cat <<EOF > $OUTPUT_FILE
         th, td {
             padding: 10px;
             text-align: left;
-        }
-        .status-ok {
-            background-color: green;
-            color: white;
-        }
-        .status-not-ok {
-            background-color: red;
-            color: white;
         }
         h2.center {
             text-align: center;
@@ -133,16 +123,10 @@ echo "  </tr>" >> $OUTPUT_FILE
 
 # Read the CSV file and generate rows
 tail -n +2 $INPUT_FILE | while IFS=, read -r ITEM STATUS TIMESTAMP; do
-    if [ "$STATUS" == "Healthy" ]; then
-        STATUS_CLASS="status-ok"
-    else
-        STATUS_CLASS="status-not-ok"
-    fi
-
     echo "  <tr>" >> $OUTPUT_FILE
     echo "    <td>$ITEM</td>" >> $OUTPUT_FILE
+    echo "    <td>$STATUS</td>" >> $OUTPUT_FILE
     echo "    <td>$TIMESTAMP</td>" >> $OUTPUT_FILE
-    echo "    <td class=\"$STATUS_CLASS\">$STATUS</td>" >> $OUTPUT_FILE
     echo "  </tr>" >> $OUTPUT_FILE
 done
 
@@ -155,3 +139,4 @@ cat <<EOF >> $OUTPUT_FILE
 EOF
 
 echo "HTML table generated in $OUTPUT_FILE"
+
