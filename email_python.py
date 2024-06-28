@@ -6,7 +6,6 @@ from email.mime.text import MIMEText
 smtp_server = 'smtp.office365.com'
 smtp_port = 587
 sender_email = 'your-email@outlook.com'
-sender_password = 'your-password'
 recipient_email = 'recipient-email@example.com'
 
 # Read HTML content from file
@@ -32,7 +31,6 @@ msg.attach(part1)
 try:
     server = smtplib.SMTP(smtp_server, smtp_port)
     server.starttls()  # Upgrade the connection to a secure encrypted SSL/TLS connection
-    server.login(sender_email, sender_password)
     server.sendmail(sender_email, recipient_email, msg.as_string())
     server.quit()
     print("Email sent successfully.")
