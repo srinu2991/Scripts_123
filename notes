@@ -1,5 +1,7 @@
 bash: -c: line 0: `$\(declare -f check_and_kill_jvms); check_and_kill_jvms'
 
+Result: abnormal termination, terminated with signal KILL core dump: false, message: []
+
 updated cleanup folder function
 
 # Function to clean up folders on master and slave servers
